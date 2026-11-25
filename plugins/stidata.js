@@ -5,8 +5,7 @@ async function handleSticker(conn, m) {
         const imageMsg = m.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
         const media = await conn.downloadMediaMessage(imageMsg);
         await conn.sendImageAsSticker(m.key.remoteJid, media, { 
-            packname: '  🅾  ꜰᴛ.ᴀɴᴀxᴅʜᴜ 🐣', 
-            author: '  🅾  ꜰᴛ.ᴀɴᴀxᴅʜᴜ 🐣' 
+            packname: '  🅾  ꜰᴛ.ᴀɴᴀxᴅʜᴜ 🐣'
         });
     }
 }
