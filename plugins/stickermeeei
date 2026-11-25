@@ -1,0 +1,108 @@
+// stkme.js
+const { Module } = require("../main");
+
+const fs = require("fs");
+const config = require("../config");
+const { uniqueTempPath } = require("../core/helpers");
+
+const NAME = "🅾  ꜰᴛ.ᴀɴᴀxᴅʜᴜ 🐣
+ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ";
+
+const encode = (inPath, outPath, mode) =>
+  new Promise((resolve, reject) => {
+    const ffmpeg = require("fluent-ffmpeg");
+    const base = ["-vcodec libwebp", "-loop 0", "-vsync 0", "-t 8"];
+    let cmd = ffmpeg(inPath);
+    if (mode === "audio") {
+      cmd = cmd
+        .complexFilter(
+          "[0:a]showwaves=s=512x512:mode=cline:rate=15:colors=0x25D366,format=rgba[v]",
+          ["v"]
+        )
+        .outputOptions(["-map [v]", ...base]);
+    } else {
+      const fps = mode === "video" ? ",fps=15" : "";
+      cmd = cmd
+        .videoFilters(
+          `scale=512:512:force_original_aspect_ratio=decrease${fps},pad=512:512:-1:-1:color=0x00000000,format=rgba`
+        )
+        .outputOptions([...base, "-an", "-q:v 60", "-preset default"]);
+    }
+    cmd.on("end", resolve).on("error", reject).save(outPath);
+  });
+
+const textPng = async (text, path) => {
+  const Jimp = require("jimp");
+  const image = new Jimp(512, 512, 0x25d366ff);
+  const font = await Jimp.loadFont(Jimp.FONT_SANS_64_WHITE);
+  image.print(
+    font,
+    0,
+    0,
+    {
+      text,
+      alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+      alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+    },
+    512,
+    512
+  );
+  await image.writeAsync(path);
+};
+
+const sendWithTag = async (message, mode) => {
+  const r = message.reply_message;
+  const inPath = uniqueTempPath(mode === "text" ? "in.png" : "in.bin");
+  const outPath = uniqueTempPath("out.webp");
+  try {
+    if (mode === "text") {
+      await textPng(NAME, inPath);
+    } else {
+      await fs.promises.writeFile(inPath, await r.download("buffer"));
+    }
+    await encode(inPath, outPath, mode === "text" ? "image" : mode);
+    const sticker = await fs.promises.readFile(outPath);
+    await message.sendReply(sticker, "sticker");
+  } finally {
+    await fs.promises.unlink(inPath).catch(() => {});
+    await fs.promises.unlink(outPath).catch(() => {});
+  }
+
+  const jid = config.ANANDU_JID; // read inside the handler
+  if (jid) {
+    await message.send(`Hey @${jid.split("@")[0]} 👋`, "text", { mentions: [jid] });
+  } else {
+    await message.send(`Hey *${NAME}* 👋`);
+  }
+};
+
+Module(
+  {
+    pattern: "stkme ?(.*)",
+    desc: "Reply with a sticker and tag Anandu. Reply to an image/video to use it",
+    usage: ".stkme",
+    use: "fun",
+  },
+  async (message) => {
+    const r = message.reply_message;
+    let mode = "text";
+    if (r && r.video) mode = "video";
+    else if (r && r.image) mode = "image";
+    await sendWithTag(message, mode);
+  }
+);
+
+Module(
+  {
+    pattern: "audme ?(.*)",
+    desc: "Reply to audio: waveform sticker, and tag Anandu",
+    usage: ".audme (as a reply to audio)",
+    use: "fun",
+  },
+  async (message) => {
+    if (!message.reply_message || !message.reply_message.audio) {
+      throw new Error("Reply to an audio or voice note");
+    }
+    await sendWithTag(message, "audio");
+  }
+);
