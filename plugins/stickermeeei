@@ -1,4 +1,3 @@
-// stkme.js
 const { Module } = require("../main");
 
 const fs = require("fs");
